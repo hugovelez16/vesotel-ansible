@@ -27,13 +27,18 @@ Este repositorio contiene la configuración de software y aprovisionamiento inte
 
 ---
 
-## Inventario del Clúster (`hosts`)
-El inventario define las IPs privadas estáticas que Terraform asignó a las máquinas:
+## Inventario del Clúster (`hosts`) y Enrutamiento (ProxyJump)
 
-* **[gateway] (`10.110.110.2`)**: El contenedor LXC que actuará como proxy y balanceador de carga externo usando **Caddy**.
-* **[apps] (`10.110.110.3`)**: La máquina virtual Ubuntu principal que ejecutará Docker Engine y liderará el clúster de **Docker Swarm**.
-* **[database] (`10.120.120.10`)**: El LXC de datos aislado que albergará **PostgreSQL 16** y **Redis**.
-* **[storage] (`10.110.110.4`)**: El LXC de almacenamiento privado que correrá **MinIO S3**.
+Dado que las máquinas virtuales y los contenedores LXC se encuentran en redes privadas aisladas (`vmbr1` y `vmbr2`), no tienen salida directa al exterior ni son alcanzables desde tu máquina de desarrollo directamente. Para solucionar esto, el inventario implementa un esquema de **ProxyJump (Bastión)**:
+
+* **[gateway] (`10.192.168.50`)**: Es el único punto de acceso expuesto a la red LAN local (`vmbr0`). Accedemos a él directamente.
+* **[apps] (`10.110.110.3`)**, **[database] (`10.120.120.10`)**, y **[storage] (`10.110.110.4`)**: Son hosts privados. Ansible se conecta a ellos automáticamente a través del túnel SSH (ProxyJump) establecido contra el gateway (`10.192.168.50`).
+
+Esto se gestiona de forma transparente en el archivo `hosts` mediante:
+```ini
+[private:vars]
+ansible_ssh_common_args='-o ProxyJump=root@10.192.168.50 -o StrictHostKeyChecking=no'
+```
 
 ---
 

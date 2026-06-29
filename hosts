@@ -1,5 +1,5 @@
 [gateway]
-10.110.110.2 ansible_user=root
+10.192.168.50 ansible_user=root
 
 [apps]
 10.110.110.3 ansible_user=usuario
@@ -9,3 +9,11 @@
 
 [storage]
 10.110.110.4 ansible_user=root
+
+[private:children]
+apps
+database
+storage
+
+[private:vars]
+ansible_ssh_common_args='-o ProxyJump=root@10.192.168.50 -o StrictHostKeyChecking=no'

@@ -36,6 +36,52 @@
         state: present
         update_cache: yes
 
+    - name: Configurar listen_addresses en PostgreSQL
+      lineinfile:
+        path: /etc/postgresql/16/main/postgresql.conf
+        regexp: "^#?listen_addresses\\s*="
+        line: "listen_addresses = '*'"
+      notify: restart postgresql
+
+    - name: Permitir conexiones desde la subred privada de datos en pg_hba.conf
+      lineinfile:
+        path: /etc/postgresql/16/main/pg_hba.conf
+        line: "host    all             all             10.120.120.0/24         md5"
+      notify: restart postgresql
+
+    - name: Configurar Redis para escuchar en todas las interfaces
+      lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: "^bind "
+        line: "bind 0.0.0.0"
+      notify: restart redis
+
+    - name: Desactivar modo protegido en Redis
+      lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: "^protected-mode "
+        line: "protected-mode no"
+      notify: restart redis
+
+    - name: Asegurar que los servicios están iniciados
+      meta: flush_handlers
+
+    - name: Establecer contraseña del usuario postgres
+      become: true
+      become_user: postgres
+      shell: psql -c "ALTER USER postgres WITH PASSWORD 'Granada2020';"
+
+  handlers:
+    - name: restart postgresql
+      service:
+        name: postgresql
+        state: restarted
+
+    - name: restart redis
+      service:
+        name: redis-server
+        state: restarted
+
 - name: Configurar LXC Storage (MinIO)
   hosts: storage
   tasks:

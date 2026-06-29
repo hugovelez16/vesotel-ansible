@@ -1,0 +1,49 @@
+- name: Configurar LXC Gateway (Caddy)
+  hosts: gateway
+  tasks:
+    - name: Actualizar repositorios e instalar Caddy
+      apt:
+        name: [ 'caddy', 'curl' ]
+        state: present
+        update_cache: yes
+
+- name: Configurar VM de Producción (Docker Engine & Swarm)
+  hosts: apps
+  become: true
+  tasks:
+    - name: Instalar paquetes prerrequisito
+      apt:
+        name: [ 'apt-transport-https', 'ca-certificates', 'curl', 'gnupg', 'software-properties-common' ]
+        state: present
+
+    - name: Instalar Docker Engine y Docker Compose Plugin
+      apt:
+        name: [ 'docker-ce', 'docker-ce-cli', 'containerd.io', 'docker-compose-plugin' ]
+        state: latest
+        update_cache: yes
+
+    - name: Inicializar Docker Swarm
+      shell: docker swarm init --advertise-addr 10.110.110.3
+      register: swarm_init
+      failed_when: false # Evita fallar si Swarm ya estaba inicializado
+
+- name: Configurar LXC Base de Datos (PostgreSQL & Redis)
+  hosts: database
+  tasks:
+    - name: Instalar PostgreSQL 16 y Redis Server
+      apt:
+        name: [ 'postgresql-16', 'redis-server' ]
+        state: present
+        update_cache: yes
+
+- name: Configurar LXC Storage (MinIO)
+  hosts: storage
+  tasks:
+    - name: Descargar instalador de MinIO
+      get_url:
+        url: https://dl.min.dev/server/minio/release/linux-amd64/archive/minio_20240611022718.0.0_amd64.deb
+        dest: /tmp/minio.deb
+
+    - name: Instalar MinIO deb
+      apt:
+        deb: /tmp/minio.deb

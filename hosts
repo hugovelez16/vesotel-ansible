@@ -1,0 +1,11 @@
+[gateway]
+10.110.110.2 ansible_user=root
+
+[apps]
+10.110.110.3 ansible_user=usuario
+
+[database]
+10.120.120.10 ansible_user=root
+
+[storage]
+10.110.110.4 ansible_user=root

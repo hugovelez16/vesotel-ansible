@@ -32,12 +32,16 @@ Este repositorio contiene la configuración de software y aprovisionamiento inte
 Dado que las máquinas virtuales y los contenedores LXC se encuentran en redes privadas aisladas (`vmbr1` y `vmbr2`), no tienen salida directa al exterior ni son alcanzables desde tu máquina de desarrollo directamente. Para solucionar esto, el inventario implementa un esquema de **ProxyJump (Bastión)**:
 
 * **[gateway] (`10.192.168.50`)**: Es el único punto de acceso expuesto a la red LAN local (`vmbr0`). Accedemos a él directamente.
-* **[apps] (`10.110.110.3`)**, **[database] (`10.120.120.10`)**, y **[storage] (`10.110.110.4`)**: Son hosts privados. Ansible se conecta a ellos automáticamente a través del túnel SSH (ProxyJump) establecido contra el gateway (`10.192.168.50`).
+* **[apps] (`10.110.110.3`)** y **[storage] (`10.110.110.4`)**: Son hosts privados conectados a la red de aplicaciones `vmbr1`. Hacen un **salto simple** a través del Gateway.
+* **[database] (`10.120.120.10`)**: Es un host privado conectado *exclusivamente* a la red de datos `vmbr2`. Como el Gateway no tiene interfaz en `vmbr2`, este requiere un **salto doble** (saltando primero al Gateway `10.192.168.50` y luego a la VM de aplicaciones `10.110.110.3`, que sí tiene patas en ambas redes y actúa como puente de datos).
 
-Esto se gestiona de forma transparente en el archivo `hosts` mediante:
+Esto se gestiona de forma transparente en el archivo `hosts` agrupando las conexiones:
 ```ini
-[private:vars]
+[single_jump:vars]
 ansible_ssh_common_args='-o ProxyJump=root@10.192.168.50 -o StrictHostKeyChecking=no'
+
+[double_jump:vars]
+ansible_ssh_common_args='-o ProxyJump=root@10.192.168.50,usuario@10.110.110.3 -o StrictHostKeyChecking=no'
 ```
 
 ---

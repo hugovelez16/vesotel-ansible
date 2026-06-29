@@ -4,16 +4,21 @@
 [apps]
 10.110.110.3 ansible_user=usuario
 
-[database]
-10.120.120.10 ansible_user=root
-
 [storage]
 10.110.110.4 ansible_user=root
 
-[private:children]
+[database]
+10.120.120.10 ansible_user=root
+
+[single_jump:children]
 apps
-database
 storage
 
-[private:vars]
+[single_jump:vars]
 ansible_ssh_common_args='-o ProxyJump=root@10.192.168.50 -o StrictHostKeyChecking=no'
+
+[double_jump:children]
+database
+
+[double_jump:vars]
+ansible_ssh_common_args='-o ProxyJump=root@10.192.168.50,usuario@10.110.110.3 -o StrictHostKeyChecking=no'

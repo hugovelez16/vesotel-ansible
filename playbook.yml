@@ -1,16 +1,41 @@
-- name: Configurar LXC Gateway (Caddy)
+- name: Configurar LXC Gateway (Caddy & Tinyproxy)
   hosts: gateway
   tasks:
-    - name: Actualizar repositorios e instalar Caddy
+    - name: Actualizar repositorios e instalar Caddy y Tinyproxy
       apt:
-        name: [ 'caddy', 'curl' ]
+        name: [ 'caddy', 'curl', 'tinyproxy' ]
         state: present
         update_cache: yes
+
+    - name: Permitir conexiones desde subred de apps en Tinyproxy
+      lineinfile:
+        path: /etc/tinyproxy/tinyproxy.conf
+        line: "Allow 10.110.110.0/24"
+      notify: restart tinyproxy
+
+    - name: Permitir conexiones desde subred de datos en Tinyproxy
+      lineinfile:
+        path: /etc/tinyproxy/tinyproxy.conf
+        line: "Allow 10.120.120.0/24"
+      notify: restart tinyproxy
+
+  handlers:
+    - name: restart tinyproxy
+      service:
+        name: tinyproxy
+        state: restarted
 
 - name: Configurar VM de Producción (Docker Engine & Swarm)
   hosts: apps
   become: true
   tasks:
+    - name: Configurar Proxy de APT
+      copy:
+        dest: /etc/apt/apt.conf.d/80proxy
+        content: |
+          Acquire::http::Proxy "http://10.110.110.2:8888";
+          Acquire::https::Proxy "http://10.110.110.2:8888";
+
     - name: Instalar paquetes prerrequisito
       apt:
         name: [ 'apt-transport-https', 'ca-certificates', 'curl', 'gnupg', 'software-properties-common' ]
@@ -30,6 +55,13 @@
 - name: Configurar LXC Base de Datos (PostgreSQL & Redis)
   hosts: database
   tasks:
+    - name: Configurar Proxy de APT
+      copy:
+        dest: /etc/apt/apt.conf.d/80proxy
+        content: |
+          Acquire::http::Proxy "http://10.120.120.2:8888";
+          Acquire::https::Proxy "http://10.120.120.2:8888";
+
     - name: Instalar PostgreSQL 16 y Redis Server
       apt:
         name: [ 'postgresql-16', 'redis-server' ]
@@ -85,10 +117,20 @@
 - name: Configurar LXC Storage (MinIO)
   hosts: storage
   tasks:
+    - name: Configurar Proxy de APT
+      copy:
+        dest: /etc/apt/apt.conf.d/80proxy
+        content: |
+          Acquire::http::Proxy "http://10.110.110.2:8888";
+          Acquire::https::Proxy "http://10.110.110.2:8888";
+
     - name: Descargar instalador de MinIO
       get_url:
         url: https://dl.min.dev/server/minio/release/linux-amd64/archive/minio_20240611022718.0.0_amd64.deb
         dest: /tmp/minio.deb
+      environment:
+        http_proxy: http://10.110.110.2:8888
+        https_proxy: http://10.110.110.2:8888
 
     - name: Instalar MinIO deb
       apt:
